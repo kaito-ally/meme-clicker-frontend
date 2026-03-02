@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Кликер с цитатами</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --accent: #0088cc;
+            --accent-light: #4da6ff;
+            --card-bg: #2d2d2d;
+            --border-radius: 12px;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Вкладки */
+        .tabs {
+            display: flex;
+            padding: 10px;
+            gap: 10px;
+            background: #222;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            border-radius: var(--border-radius);
+            background: #333;
+            color: #888;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            font-size: 16px;
+        }
+
+        .tab.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* Контейнер для контента */
+        .content {
+            flex: 1;
+            padding: 16px;
+        }
+
+        /* Баланс (общий для всех экранов) */
+        .balance-header {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 16px 0;
+            color: #f1c40f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* Экран кликера */
+        .clicker-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+        }
+
+        .click-button {
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #00a2ff 0%, #0088cc 100%);
+            border: 8px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1.4rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transition: transform 0.05s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .click-button:active {
+            transform: scale(0.92);
+        }
+
+        /* Экран магазина */
+        .shop-screen, .inventory-screen {
+            display: none;
+        }
+
+        .cards-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        /* Стили для карточек (общие) */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            border: 1px solid #3d3d3d;
+            transition: transform 0.3s;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* Карточка в магазине (скрытая) */
+        .shop-card {
+            cursor: pointer;
+            background: linear-gradient(145deg, #2d2d2d, #222);
+            text-align: center;
+        }
+
+        .shop-card .mystery-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+            opacity: 0.8;
+        }
+
+        .shop-card .price-tag {
+            color: #f1c40f;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .shop-card .hint {
+            color: #888;
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        /* Карточка в инвентаре (открытая) */
+        .inventory-card {
+            background: var(--card-bg);
+        }
+
+        .quote-image {
+            width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .quote-text {
+            font-size: 16px;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .quote-author {
+            color: #888;
+            font-size: 14px;
+            text-align: right;
+            margin-top: 8px;
+        }
+
+        .purchase-date {
+            color: #666;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        .buy-button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .loader {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('clicker')">💰 Кликер</button>
+        <button class="tab" onclick="switchTab('shop')">🎁 Магазин</button>
+        <button class="tab" onclick="switchTab('inventory')">📦 Инвентарь</button>
+    </div>
+
+    <div class="balance-header">
+        <span>💰</span>
+        <span id="balance">0</span>
+        <div id="loader" class="loader" style="display: none;"></div>
+    </div>
+
+    <div class="content">
+        <!-- Экран кликера -->
+        <div id="clickerScreen" class="clicker-screen">
+            <button class="click-button" id="clickButton">ЖМИ!</button>
+            <div style="color: #888; font-size: 14px; margin-top: 20px;">Кликай и зарабатывай монеты</div>
+        </div>
+
+        <!-- Экран магазина -->
+        <div id="shopScreen" class="shop-screen">
+            <div style="margin-bottom: 16px; color: #888;">Покупай загадочные карточки с мемами</div>
+            <div id="shopContainer" class="cards-grid">
+                <div class="empty-state">Загрузка...</div>
+            </div>
+        </div>
+
+        <!-- Экран инвентаря -->
+        <div id="inventoryScreen" class="inventory-screen">
+            <div style="margin-bottom: 16px; color: #888;">Твои открытые мемы</div>
+            <div id="inventoryContainer" class="cards-grid">
+                <div class="empty-state">У тебя пока нет мемов</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        const userId = tg.initDataUnsafe?.user?.id?.toString() || "test_user_123";
+        let balance = 0;
+        let quotes = [];
+        let purchasedQuotes = [];
+
+        // Элементы
+        const balanceEl = document.getElementById('balance');
+        const loaderEl = document.getElementById('loader');
+        const clickerScreen = document.getElementById('clickerScreen');
+        const shopScreen = document.getElementById('shopScreen');
+        const inventoryScreen = document.getElementById('inventoryScreen');
+        const tabs = document.querySelectorAll('.tab');
+        const shopContainer = document.getElementById('shopContainer');
+        const inventoryContainer = document.getElementById('inventoryContainer');
+        const toastEl = document.getElementById('toast');
+
+        // Показать уведомление
+        function showToast(text, isError = false) {
+            toastEl.style.display = 'block';
+            toastEl.style.background = isError ? 'rgba(255, 0, 0, 0.8)' : 'rgba(0,0,0,0.8)';
+            toastEl.textContent = text;
+            setTimeout(() => {
+                toastEl.style.display = 'none';
+            }, 2000);
+        }
+
+        // Переключение вкладок
+        function switchTab(tab) {
+            clickerScreen.style.display = 'none';
+            shopScreen.style.display = 'none';
+            inventoryScreen.style.display = 'none';
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            if (tab === 'clicker') {
+                clickerScreen.style.display = 'flex';
+                tabs[0].classList.add('active');
+            } else if (tab === 'shop') {
+                shopScreen.style.display = 'block';
+                tabs[1].classList.add('active');
+                loadShop();
+            } else if (tab === 'inventory') {
+                inventoryScreen.style.display = 'block';
+                tabs[2].classList.add('active');
+                loadInventory();
+            }
+        }
+
+        // Загрузка баланса
+        async function loadBalance() {
+            try {
+                const res = await fetch('/api/init', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                balance = data.balance;
+                balanceEl.textContent = balance;
+            } catch (e) {
+                console.error('Balance error:', e);
+            }
+        }
+
+        // Загрузка данных для магазина
+        async function loadShop() {
+            shopContainer.innerHTML = '<div class="empty-state">Загрузка...</div>';
+            
+            try {
+                const quotesRes = await fetch('/api/quotes');
+                quotes = await quotesRes.json();
+
+                const purchasesRes = await fetch(`/api/purchases?user_id=${userId}`);
+                purchasedQuotes = await purchasesRes.json();
+
+                renderShop();
+            } catch (e) {
+                console.error('Load shop error:', e);
+                shopContainer.innerHTML = '<div class="empty-state" style="color: #f00;">Ошибка загрузки</div>';
+            }
+        }
+
+        // Загрузка инвентаря
+        async function loadInventory() {
+            inventoryContainer.innerHTML = '<div class="empty-state">Загрузка...</div>';
+            
+            try {
+                const quotesRes = await fetch('/api/quotes');
+                quotes = await quotesRes.json();
+
+                const purchasesRes = await fetch(`/api/purchases?user_id=${userId}`);
+                purchasedQuotes = await purchasesRes.json();
+
+                renderInventory();
+            } catch (e) {
+                console.error('Load inventory error:', e);
+                inventoryContainer.innerHTML = '<div class="empty-state" style="color: #f00;">Ошибка загрузки</div>';
+            }
+        }
+
+        // Отрисовка магазина (скрытые карточки)
+        function renderShop() {
+            if (!quotes.length) {
+                shopContainer.innerHTML = '<div class="empty-state">Мемов пока нет</div>';
+                return;
+            }
+
+            shopContainer.innerHTML = '';
+            quotes.forEach(quote => {
+                const isPurchased = purchasedQuotes.includes(quote.id);
+                
+                if (!isPurchased) {
+                    const card = document.createElement('div');
+                    card.className = 'card shop-card';
+                    card.innerHTML = `
+                        <div class="mystery-icon">🎁</div>
+                        <div class="price-tag">💰 ${quote.price}</div>
+                        <div class="hint">???</div>
+                        <button class="buy-button" onclick="buyQuote(${quote.id})">Купить</button>
+                    `;
+                    shopContainer.appendChild(card);
+                }
+            });
+        }
+
+        // Отрисовка инвентаря (открытые мемы с картинками)
+        function renderInventory() {
+            if (!quotes.length || !purchasedQuotes.length) {
+                inventoryContainer.innerHTML = '<div class="empty-state">У тебя пока нет мемов</div>';
+                return;
+            }
+
+            const userQuotes = quotes.filter(q => purchasedQuotes.includes(q.id));
+            
+            if (userQuotes.length === 0) {
+                inventoryContainer.innerHTML = '<div class="empty-state">У тебя пока нет мемов</div>';
+                return;
+            }
+
+            inventoryContainer.innerHTML = '';
+            userQuotes.forEach(quote => {
+                const card = document.createElement('div');
+                card.className = 'card inventory-card';
+                
+                // Добавляем картинку, если есть
+                const imageHtml = quote.image_url ? `<img src="${quote.image_url}" class="quote-image" alt="meme">` : '';
+                
+                card.innerHTML = `
+                    ${imageHtml}
+                    <div class="quote-text">"${quote.text}"</div>
+                    <div class="quote-author">— ${quote.author || 'Неизвестно'}</div>
+                    <div class="purchase-date">✨ открыто</div>
+                `;
+                inventoryContainer.appendChild(card);
+            });
+        }
+
+        // Покупка цитаты
+        async function buyQuote(quoteId) {
+            const quote = quotes.find(q => q.id === quoteId);
+            if (!quote) return;
+            
+            if (balance < quote.price) {
+                showToast('Недостаточно монет!', true);
+                return;
+            }
+
+            loaderEl.style.display = 'block';
+            
+            try {
+                const res = await fetch('/api/purchase', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, quote_id: quoteId })
+                });
+                
+                const data = await res.json();
+                
+                if (data.error) {
+                    showToast(data.error, true);
+                } else {
+                    balance = data.balance;
+                    balanceEl.textContent = balance;
+                    purchasedQuotes.push(quoteId);
+                    
+                    showToast(`🎉 Открыт мем: "${quote.text}"`);
+                    
+                    if (shopScreen.style.display === 'block') {
+                        renderShop();
+                    }
+                    if (inventoryScreen.style.display === 'block') {
+                        renderInventory();
+                    }
+                    
+                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                }
+            } catch (e) {
+                console.error('Purchase error:', e);
+                showToast('Ошибка при покупке', true);
+            } finally {
+                loaderEl.style.display = 'none';
+            }
+        }
+
+        // Клик по кнопке
+        document.getElementById('clickButton').addEventListener('click', async function() {
+            const currentVal = balance;
+            balance++;
+            balanceEl.textContent = balance;
+            
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+            try {
+                const res = await fetch('/api/click', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                balance = data.balance;
+                balanceEl.textContent = balance;
+            } catch (e) {
+                balance = currentVal;
+                balanceEl.textContent = balance;
+                showToast('Ошибка соединения', true);
+            }
+        });
+
+        // Инициализация
+        loadBalance();
+    </script>
+</body>
+</html>
