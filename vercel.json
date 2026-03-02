@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://meme-clicker-backend.onrender.com/api/$1"
+    }
+  ]
+}
